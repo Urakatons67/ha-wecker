@@ -23,7 +23,6 @@ Wecker für die ganze Familie mit eigener Seite in der Seitenleiste. Jede Person
 - **Stopp und Schlummern** über die Seite, Tasten-Entitäten, Push-Aktionen der Companion App oder Dienste (also auch über Sprachassistenten-Routinen).
 - **Ersatz-Push**, wenn der Lautsprecher nicht erreichbar ist.
 - **Export und Import** aller Daten als JSON, zum Sichern oder für eine neue Installation.
-- **Übernahme** eines bisherigen Helfer-Weckers (`input_boolean.wecker_<person>_<n>_aktiv` usw.). Die alten Helfer bleiben unverändert, und die übernommenen Wecker sind zunächst aus, damit beide parallel laufen können.
 
 ## Entitäten je Profil
 

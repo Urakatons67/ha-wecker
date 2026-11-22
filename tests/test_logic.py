@@ -1,4 +1,4 @@
-"""Tests der reinen Logik (Zeitplan, Kalendertage, Übernahme).
+"""Tests der reinen Logik (Zeitplan, Kalendertage, Datenformat).
 
 Ausführen in einer Umgebung mit Home Assistant:
   PYTHONPATH=. python3 -m pytest tests -q     (oder: python3 tests/test_logic.py)
@@ -12,7 +12,6 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from custom_components.wecker.migrate import apply  # noqa: E402
 from custom_components.wecker.schedule import event_dates, next_occurrence  # noqa: E402
 from custom_components.wecker.store import normalize  # noqa: E402
 
@@ -75,33 +74,20 @@ def test_event_dates():
     assert event_dates("2026-11-23T22:00:00+01:00", "2026-11-24T02:00:00+01:00") == {"2026-11-23", "2026-11-24"}
 
 
-def test_migration():
-    data = normalize({})
-    preview = {
-        "stations": ["Sender A", "Sender B"],
-        "people": [{"key": "anna", "name": "Anna", "user_id": "u1", "player": "media_player.x", "zielgeraet": "X",
-                    "slots": [{"n": 1, "aktiv": True, "zeit": "06:15", "sender": "Sender B", "modus": "Werktags"},
-                              {"n": 2, "aktiv": False, "zeit": "09:00", "sender": "Sender A", "modus": "Täglich"}]}],
-    }
-    r = apply(data, preview, {"activate": False, "people": {}})
-    assert r == {"profiles": 1, "alarms": 2}
-    prof = next(iter(data["profiles"].values()))
-    assert prof["user_id"] == "u1" and prof["settings"]["player"] == "media_player.x"
-    alarms = sorted(prof["alarms"].values(), key=lambda a: a["time"])
-    assert [a["enabled"] for a in alarms] == [False, False]
-    assert alarms[0]["schedule"]["mode"] == "workdays" and alarms[1]["schedule"]["days"] == [0, 1, 2, 3, 4, 5, 6]
-    sb = next(s for s in data["stations"] if s["name"] == "Sender B")
-    assert alarms[0]["sound"]["station_id"] == sb["id"]
-    assert data["alexa_template"] == "{sender} auf TuneIn für eine Stunde"
-    # zweiter Lauf ersetzt, verdoppelt nicht; activate übernimmt Aktiv-Zustand
-    r = apply(data, preview, {"activate": True, "people": {}})
-    assert r == {"profiles": 0, "alarms": 2}
-    alarms = sorted(prof["alarms"].values(), key=lambda a: a["time"])
-    assert len(alarms) == 2 and [a["enabled"] for a in alarms] == [True, False]
-    assert len(data["stations"]) == 2
-    # Person abwählen
-    r = apply(data, preview, {"people": {"anna": {"include": False}}})
-    assert r["alarms"] == 0
+
+
+
+
+def test_normalize_keeps_existing_data():
+    raw = {"profiles": {"p1": {"name": "A", "user_id": "u", "settings": {"player": "media_player.x"},
+                               "alarms": {"a1": {"name": "W", "time": "06:00", "source": "alt:a:1",
+                                                 "sound": {"station_id": "s1"}}}}},
+           "stations": [{"id": "s1", "name": "S", "alexa": "S", "media_id": ""}], "parents": []}
+    d = normalize(raw)
+    a = d["profiles"]["p1"]["alarms"]["a1"]
+    assert a["source"] == "alt:a:1" and a["sound"]["station_id"] == "s1" and a["sound"]["duration_min"] == 60
+    assert d["profiles"]["p1"]["settings"]["player"] == "media_player.x" and d["profiles"]["p1"]["settings"]["snooze_min"] == 9
+    assert d["stations"][0]["id"] == "s1"
 
 
 if __name__ == "__main__":

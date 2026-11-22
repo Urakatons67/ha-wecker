@@ -44,7 +44,7 @@ DEFAULT_ALARM = {
     "covers": {"enabled": False, "entities": [], "position": 100},
     "script": {"enabled": False, "entity": ""},
     "pre": {"enabled": False, "minutes": 30},
-    "source": "",             # Herkunft bei Übernahme (z. B. alt:person:1)
+    "source": "",             # Herkunft (frühere Übernahme), nur informativ
 }
 
 EMPTY = {"profiles": {}, "parents": [], "stations": [], "alexa_template": DEFAULT_ALEXA_TEMPLATE}

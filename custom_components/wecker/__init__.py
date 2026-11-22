@@ -3,7 +3,7 @@
 Rechte (vom Server geprüft): Admins und Eltern sehen und bearbeiten alle Profile.
 Alle anderen Benutzer sehen nur das Profil mit ihrer user_id und dürfen dort
 Wecker stellen, testen, überspringen, stoppen und schlummern. Personen-Einstellungen
-und Sender nur Eltern/Admins, Profile, Eltern, Export/Import und Übernahme nur Admins.
+und Sender nur Eltern/Admins, Profile, Eltern und Export/Import nur Admins.
 """
 from __future__ import annotations
 
@@ -23,7 +23,6 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
 
-from . import migrate
 from .const import DOMAIN, PANEL_ELEMENT, PANEL_PATH, URL_BASE, VERSION
 from .engine import Engine
 from .store import DEFAULT_SETTINGS, WeckerStore, new_id, norm_alarm, normalize
@@ -49,7 +48,7 @@ def _rt(hass: HomeAssistant) -> Runtime | None:
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     for cmd in (ws_get, ws_alarm_save, ws_alarm_delete, ws_alarm_test, ws_alarm_skip, ws_stop,
                 ws_snooze, ws_settings_save, ws_stations_save, ws_parents_save, ws_profile_save,
-                ws_profile_delete, ws_export, ws_import, ws_migrate_preview, ws_migrate_run):
+                ws_profile_delete, ws_export, ws_import):
         websocket_api.async_register_command(hass, cmd)
     _register_services(hass)
     return True
@@ -596,26 +595,3 @@ def ws_import(hass, connection, msg) -> None:
     rt.store.data = normalize(raw)
     _changed(rt, reload=True)
     connection.send_result(msg["id"], {"profiles": len(rt.store.data["profiles"])})
-
-
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/migrate/preview"})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_migrate_preview(hass, connection, msg) -> None:
-    connection.send_result(msg["id"], await migrate.async_preview(hass))
-
-
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/migrate/run", vol.Required("plan"): dict})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_migrate_run(hass, connection, msg) -> None:
-    rt = _admin_rt(hass, connection, msg)
-    if rt is None:
-        return
-    preview = await migrate.async_preview(hass)
-    before = {pid for pid in rt.store.data["profiles"]}
-    result = migrate.apply(rt.store.data, preview, msg["plan"])
-    rt.store.data = normalize(rt.store.data)
-    _changed(rt, reload=set(rt.store.data["profiles"]) != before)
-    _LOGGER.info("Wecker übernommen: %s", result)
-    connection.send_result(msg["id"], result)

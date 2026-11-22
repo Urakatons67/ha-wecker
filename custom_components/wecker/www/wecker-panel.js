@@ -1,4 +1,4 @@
-// Wecker – Seite „Wecker“ (Wecker stellen, Einstellungen, Sender, Profile, Übernahme)
+// Wecker – Seite „Wecker“ (Wecker stellen, Einstellungen, Sender, Profile, Sichern)
 const DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -104,7 +104,7 @@ class WeckerPanel extends HTMLElement {
     try { const r = await fn(); if (ok) this._toast(ok); return r; } catch (e) { this._toast("Fehler: " + (e.message || e)); return null; }
   }
 
-  _obj(name) { return { edit: this._edit, set: this._set, newProf: this._newProf, mig: this._mig }[name]; }
+  _obj(name) { return { edit: this._edit, set: this._set, newProf: this._newProf }[name]; }
 
   // ---------- Eingaben ----------
   _onChange(e) {
@@ -140,9 +140,6 @@ class WeckerPanel extends HTMLElement {
       this._parentsDraft = [...s];
     } else if (ds.act === "import") {
       this._import(el.files && el.files[0]);
-    } else if (ds.act === "migp") {
-      const p = (this._mig.plan.people[ds.k] = this._mig.plan.people[ds.k] || {});
-      p[ds.f2] = el.type === "checkbox" ? el.checked : (el.value || null);
     }
   }
 
@@ -181,8 +178,6 @@ class WeckerPanel extends HTMLElement {
     else if (a === "profadd") this._profAdd();
     else if (a === "saveparents") this._try(() => this._hass.callWS({ type: "wecker/parents/save", parents: this._parentsDraft }), "Eltern gespeichert ✓");
     else if (a === "export") this._export();
-    else if (a === "migscan") this._migScan();
-    else if (a === "migrun") this._migRun();
   }
 
   async _switch(pid) {
@@ -255,24 +250,6 @@ class WeckerPanel extends HTMLElement {
     if (r) { this._toast(`Importiert: ${r.profiles} Profile`); this._profile = null; setTimeout(() => this._load(), 1500); }
   }
 
-  async _migScan() {
-    const r = await this._try(() => this._hass.callWS({ type: "wecker/migrate/preview" }));
-    if (!r) return;
-    const people = {};
-    for (const p of r.people) people[p.key] = { include: true, name: p.name, user_id: p.user_id, player: p.player };
-    this._mig = { preview: r, plan: { activate: false, people } };
-    this._render();
-  }
-  async _migRun() {
-    const n = this._mig.preview.people.filter((p) => this._mig.plan.people[p.key].include).length;
-    const msg = this._mig.plan.activate
-      ? `Wecker von ${n} Personen übernehmen UND aktiv schalten? Den alten Wecker vorher ausschalten, sonst klingelt es doppelt.`
-      : `Wecker von ${n} Personen übernehmen? Die neuen Wecker sind zunächst AUS, der alte Wecker läuft unverändert weiter.`;
-    if (!confirm(msg)) return;
-    const r = await this._try(() => this._hass.callWS({ type: "wecker/migrate/run", plan: this._mig.plan }));
-    if (r) { this._toast(`Übernommen: ${r.alarms} Wecker, ${r.profiles} neue Profile`); this._mig = null; setTimeout(() => this._load(), 1500); }
-  }
-
   // ---------- Darstellung ----------
   _render() {
     const root = this.shadowRoot;
@@ -328,7 +305,7 @@ class WeckerPanel extends HTMLElement {
         <div class="al">
           <div class="time">${esc(a.time)}</div>
           <div class="meta"><b>${esc(a.name)}</b> · ${esc(schedText(a))} <span class="ex">${extras}</span></div>
-          <div class="meta">${esc(next)}${skipped ? ` · <span class="warn">übersprungen: ${a.skip_dates.map((x) => x.split("-").reverse().slice(0, 2).join(".") + ".").join(", ")}</span>` : ""}${a.source ? ` · <span class="muted">übernommen</span>` : ""}</div>
+          <div class="meta">${esc(next)}${skipped ? ` · <span class="warn">übersprungen: ${a.skip_dates.map((x) => x.split("-").reverse().slice(0, 2).join(".") + ".").join(", ")}</span>` : ""}</div>
           <div class="row sm">
             <button class="link" data-act="edit" data-aid="${a.id}">Bearbeiten</button>
             <button class="link" data-act="test" data-aid="${a.id}">Test</button>
@@ -431,7 +408,7 @@ class WeckerPanel extends HTMLElement {
     if (d.profile && this._isParent) out += this._rPerson();
     else if (d.profile) out += `<div class="card muted">Lautsprecher, Push und Kalender für ${esc(d.name)} stellen die Eltern ein.</div>`;
     if (this._isParent) out += this._rStations();
-    if (this._isAdmin) out += this._rProfiles() + this._rParents() + this._rBackup() + this._rMigrate();
+    if (this._isAdmin) out += this._rProfiles() + this._rParents() + this._rBackup();
     return out;
   }
 
@@ -496,33 +473,6 @@ class WeckerPanel extends HTMLElement {
       <label class="filebtn">Importieren …<input type="file" accept="application/json,.json" data-act="import"></label></div></div>`;
   }
 
-  _rMigrate() {
-    if (!this._mig) {
-      return `<div class="card"><h2>↪️ Alten Wecker übernehmen</h2>
-        <p class="hint">Liest einen bisherigen Wecker aus Helfern (input_boolean.wecker_&lt;person&gt;_&lt;n&gt;_aktiv usw.). Die alten Helfer und Automationen bleiben unverändert.</p>
-        <button data-act="migscan">Alte Wecker suchen</button></div>`;
-    }
-    const pv = this._mig.preview;
-    const c = this._data.choices;
-    const users = this._data.users || [];
-    if (!pv.people.length) return `<div class="card"><h2>↪️ Alten Wecker übernehmen</h2><p class="muted">Keine alten Wecker gefunden.</p></div>`;
-    const people = pv.people.map((p) => {
-      const plan = this._mig.plan.people[p.key];
-      const slots = p.slots.map((s) => `<div class="meta">Wecker ${s.n}: ${esc(s.zeit || "–")} · ${esc(s.modus)} · ${esc(s.sender)} · ${s.aktiv ? "<b>aktiv</b>" : "aus"}</div>`).join("");
-      return `<div class="mig">
-        <label class="chk"><input type="checkbox" data-act="migp" data-k="${esc(p.key)}" data-f2="include" ${plan.include ? "checked" : ""}> <b>${esc(p.key)}</b></label>
-        <div class="srow"><input type="text" value="${esc(plan.name)}" data-act="migp" data-k="${esc(p.key)}" data-f2="name">
-          <select data-act="migp" data-k="${esc(p.key)}" data-f2="user_id"><option value="">– kein Benutzer –</option>${users.map((u) => `<option value="${esc(u.id)}" ${u.id === plan.user_id ? "selected" : ""}>${esc(u.name)}</option>`).join("")}</select></div>
-        <div class="ms"><div class="lbl">Lautsprecher (alt: ${esc(p.zielgeraet || "–")})</div><select data-act="migp" data-k="${esc(p.key)}" data-f2="player">${this._opts(c.players, plan.player, "– nicht gefunden, bitte wählen –")}</select></div>
-        ${slots}</div>`;
-    }).join("");
-    return `<div class="card"><h2>↪️ Alten Wecker übernehmen</h2>
-      <p class="hint">Sender: ${esc(pv.stations.join(", ") || "–")}</p>
-      ${people}
-      <label class="chk"><input type="checkbox" data-o="mig" data-f="plan.activate" ${this._mig.plan.activate ? "checked" : ""}> Aktiv-Zustand übernehmen (nur wenn der alte Wecker abgeschaltet ist – sonst klingelt es doppelt)</label>
-      <p class="hint">Ohne Haken sind alle übernommenen Wecker zunächst aus. Erneutes Übernehmen ersetzt die früher übernommenen Wecker.</p>
-      <button class="primary" data-act="migrun">Übernehmen</button></div>`;
-  }
 }
 
 const CSS = `
@@ -594,7 +544,6 @@ button.link { border:0; background:none; color:var(--primary-color); padding:4px
 .strow input:nth-child(3) { flex:2; min-width:180px; }
 .filebtn { border:1px solid var(--divider-color); border-radius:8px; padding:8px 12px; cursor:pointer; }
 .filebtn input { display:none; }
-.mig { border-top:1px solid var(--divider-color); padding:8px 0; }
 code { font-size:12px; background:var(--primary-background-color); padding:1px 4px; border-radius:4px; }
 .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#323232; color:#fff; padding:10px 18px; border-radius:8px; font-size:14px; z-index:10; max-width:90vw; }
 `;
