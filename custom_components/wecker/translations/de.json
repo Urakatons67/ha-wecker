@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wecker einrichten",
+        "description": "Richtet die Seite „Wecker“ in der Seitenleiste ein. Personen, Wecker und Sender werden dort angelegt."
+      }
+    },
+    "abort": { "single_instance_allowed": "Der Wecker ist bereits eingerichtet.", "already_configured": "Der Wecker ist bereits eingerichtet." }
+  },
+  "entity": {
+    "sensor": { "naechster": { "name": "Nächster Wecker" } },
+    "switch": { "aktiv": { "name": "Wecker aktiv" } },
+    "button": { "stopp": { "name": "Stopp" }, "schlummern": { "name": "Schlummern" } },
+    "binary_sensor": { "klingelt": { "name": "Klingelt" } }
+  }
+}

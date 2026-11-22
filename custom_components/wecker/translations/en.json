@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up alarm clock",
+        "description": "Adds the \"Wecker\" page to the sidebar. People, alarms and stations are managed there."
+      }
+    },
+    "abort": { "single_instance_allowed": "Already configured.", "already_configured": "Already configured." }
+  },
+  "entity": {
+    "sensor": { "naechster": { "name": "Next alarm" } },
+    "switch": { "aktiv": { "name": "Alarms enabled" } },
+    "button": { "stopp": { "name": "Stop" }, "schlummern": { "name": "Snooze" } },
+    "binary_sensor": { "klingelt": { "name": "Ringing" } }
+  }
+}

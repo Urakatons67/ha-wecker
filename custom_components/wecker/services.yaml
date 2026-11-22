@@ -1,0 +1,58 @@
+stoppen:
+  name: Wecker stoppen
+  description: Beendet den klingelnden oder schlummernden Wecker (ohne Profil alle).
+  fields:
+    profil:
+      name: Profil
+      description: Name oder ID des Profils
+      example: Anna
+      selector:
+        text:
+schlummern:
+  name: Schlummern
+  description: Schaltet den klingelnden Wecker für die eingestellte Schlummerzeit stumm (ohne Profil alle).
+  fields:
+    profil:
+      name: Profil
+      description: Name oder ID des Profils
+      example: Anna
+      selector:
+        text:
+ausloesen:
+  name: Wecker auslösen
+  description: Lässt einen Wecker sofort klingeln (als Test ohne Rollläden und Skript).
+  fields:
+    profil:
+      name: Profil
+      required: true
+      example: Anna
+      selector:
+        text:
+    wecker:
+      name: Wecker
+      description: Name oder ID des Weckers
+      required: true
+      example: Schule
+      selector:
+        text:
+    test:
+      name: Test
+      description: Aus = echter Weckvorgang mit Rollläden und Skript
+      default: true
+      selector:
+        boolean:
+ueberspringen:
+  name: Nächsten Wecker überspringen
+  description: Überspringt den nächsten Termin eines Weckers (ohne Wecker alle Wecker des Profils).
+  fields:
+    profil:
+      name: Profil
+      required: true
+      example: Anna
+      selector:
+        text:
+    wecker:
+      name: Wecker
+      example: Schule
+      selector:
+        text:
