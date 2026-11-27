@@ -87,9 +87,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         rt.engine.clear_caches()
         rt.engine.request_reschedule()
 
+    @callback
+    def _hourly(_now) -> None:  # stündlich nachplanen (z. B. nach Zeitumstellung)
+        rt.engine.request_reschedule()
+
+    # Ein nicht als @callback markiertes Lambda würde HA im Executor-Thread ausführen;
+    # dort kann keine Aufgabe in der Ereignisschleife angelegt werden (Fehler „not the running loop“).
     entry.async_on_unload(async_track_time_change(hass, _daily, hour=0, minute=1, second=0))
-    entry.async_on_unload(async_track_time_change(hass, lambda _n: rt.engine.request_reschedule(),
-                                                  minute=7, second=0))
+    entry.async_on_unload(async_track_time_change(hass, _hourly, minute=7, second=0))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     rt.engine.request_reschedule()
     return True
